@@ -1,0 +1,10 @@
+{
+  "requestFramePermissions": [
+    "camera",
+    "geolocation",
+    "microphone"
+  ],
+  "name": "Copy of Sentinel-AI",
+  "description": "Camera Feeds & AI Monitoring",
+  "prompt": ""
+}

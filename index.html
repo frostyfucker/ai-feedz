@@ -1,0 +1,313 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SENTINEL-AI 5.0</title>
+    <style>
+        :root {
+            --primary-glow: #4d94ff; /* Electric Blue */
+            --secondary-glow: #00ffff; /* Cyan */
+            --error-glow: #ff3333;
+            --bg-dark: #0a0a0f;
+            --bg-medium: #1a1a2e;
+            --bg-panel: #101018;
+            --text-color: #e0e0e0;
+            --border-color: rgba(77, 148, 255, 0.2);
+            --border-active: rgba(0, 255, 255, 0.7);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: var(--bg-dark);
+            color: var(--text-color);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 10px;
+            gap: 10px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            border: 1px solid var(--border-color);
+            background: rgba(16, 16, 24, 0.5);
+            border-radius: 5px;
+            flex-shrink: 0;
+        }
+        
+        .logo-group { display: flex; align-items: baseline; gap: 20px; }
+        .logo { font-size: 24px; font-weight: bold; text-shadow: 0 0 10px var(--primary-glow); }
+        .uptime-display { font-size: 12px; }
+        .header-info { display: flex; align-items: center; gap: 20px; }
+        .time-info { font-size: 12px; text-align: right; }
+        #audio-visualizer { background: transparent; }
+
+        .main-content {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 10px;
+            min-height: 0;
+        }
+
+        .camera-feed {
+            position: relative;
+            background: #000;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .camera-feed.active {
+            border-color: var(--secondary-glow);
+            box-shadow: 0 0 20px var(--secondary-glow);
+        }
+         .camera-feed.lookout-active.active {
+            animation: police-blink 1.2s infinite;
+        }
+
+        .camera-header {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 10px;
+            background: rgba(0, 0, 0, 0.7);
+            font-size: 12px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 10;
+        }
+        .camera-id { color: var(--secondary-glow); font-weight: bold; text-shadow: 0 0 5px var(--secondary-glow); }
+        .camera-status { padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; }
+        .ai-active { color: #fff; background: var(--primary-glow); }
+        .streaming { color: #fff; background: var(--secondary-glow); }
+        .offline { background: #444; color: #aaa; }
+        
+        .camera-display { width: 100%; height: 100%; position: relative; }
+        .camera-display > video, .camera-display > iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; background: #000; }
+        .camera-display > video { transform: scaleX(-1); }
+        .camera-placeholder { z-index: 3; display: flex; align-items: center; justify-content: center; text-align: center; height:100%; width:100%; }
+
+        .controls-bar {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            background: rgba(16, 16, 24, 0.5);
+            border-radius: 5px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .control-btn {
+            background: transparent;
+            border: 1px solid var(--primary-glow); color: var(--primary-glow);
+            padding: 8px 15px; border-radius: 3px; cursor: pointer;
+            font-family: 'Courier New', monospace; font-size: 12px; font-weight: bold;
+            transition: all 0.3s ease; text-shadow: 0 0 5px var(--primary-glow);
+        }
+        .control-btn:hover:not(:disabled) { background: rgba(77, 148, 255, 0.2); box-shadow: 0 0 10px var(--primary-glow); }
+        .control-btn:disabled { cursor: not-allowed; opacity: 0.4; }
+        .loader { width: 20px; height: 20px; border: 3px solid rgba(0,255,255,0.3); border-top-color: var(--secondary-glow); border-radius: 50%; animation: spin 1s linear infinite; }
+        
+        .toggle-switch { display: flex; align-items: center; gap: 10px; }
+        .toggle-switch label { font-size: 12px; font-weight: bold; color: var(--primary-glow); text-shadow: 0 0 5px var(--primary-glow); }
+        .toggle-switch input { appearance: none; width: 30px; height: 16px; background: #333; border: 1px solid var(--primary-glow); border-radius: 8px; position: relative; cursor: pointer; transition: background 0.3s; }
+        .toggle-switch input::before { content: ''; position: absolute; width: 12px; height: 12px; background: #fff; border-radius: 50%; top: 1px; left: 1px; transition: transform 0.3s; }
+        .toggle-switch input:checked { background: var(--error-glow); border-color: var(--error-glow); }
+        .toggle-switch input:checked::before { transform: translateX(14px); }
+
+        .info-panel {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--border-color);
+            background: var(--bg-panel);
+            border-radius: 5px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .tab-nav { display: flex; background: rgba(0,0,0,0.3); }
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text-color);
+            font-family: inherit; font-size: 12px; font-weight: bold;
+            cursor: pointer; transition: all 0.3s ease; opacity: 0.6;
+        }
+        .tab-btn.active { color: var(--secondary-glow); border-bottom-color: var(--secondary-glow); opacity: 1; }
+        .tab-content { flex: 1; padding: 15px; position: relative; min-height: 150px; max-height: 150px; overflow-y: auto; }
+        .tab-content::-webkit-scrollbar { width: 4px; }
+        .tab-content::-webkit-scrollbar-thumb { background: var(--primary-glow); }
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+        
+        .analysis-content { font-size: 12px; line-height: 1.6; display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
+        .analysis-content strong { color: var(--primary-glow); opacity: 0.8; }
+        .analysis-content ul { list-style: none; }
+        .confidence { color: var(--secondary-glow); }
+
+        .log-content { font-size: 12px; line-height: 1.4; }
+        .log-content .user-msg { color: var(--secondary-glow); }
+        .log-content .ai-msg { color: var(--text-color); }
+        .chat-input-container { display: flex; gap: 5px; margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 10px; }
+        #chat-input { flex-grow: 1; background: rgba(0,0,0,0.5); border: 1px solid var(--primary-glow); color: var(--primary-glow); padding: 5px; border-radius: 3px; font-family: inherit; }
+        #send-chat-button { padding: 5px 10px; }
+        
+        .timeline-content { display: flex; flex-direction: column; gap: 5px; }
+        .timeline-event { font-size: 12px; padding: 5px; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background 0.2s; display: flex; justify-content: space-between; }
+        .timeline-event:hover { background: var(--bg-medium); }
+        .timeline-event small { opacity: 0.7; }
+
+        #map-pane { display: none; flex-direction: column; align-items: center; gap: 10px; }
+        #radar-canvas { background-color: #000; border-radius: 50%; border: 2px solid var(--secondary-glow); }
+
+        .system-form { display: flex; flex-direction: column; gap: 10px; align-items: flex-start;}
+        .system-form h3 { color: var(--primary-glow); margin-bottom: 5px; }
+        .system-form input { background: rgba(0,0,0,0.5); border: 1px solid var(--primary-glow); color: var(--primary-glow); padding: 8px; border-radius: 3px; font-family: inherit; width: 100%; max-width: 400px; }
+
+
+        .hidden { display: none !important; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes police-blink { 0%, 100% { border-color: var(--secondary-glow); box-shadow: 0 0 20px var(--secondary-glow); } 50% { border-color: var(--error-glow); box-shadow: 0 0 20px var(--error-glow); } }
+    </style>
+<script type="importmap">
+{ "imports": { "@google/genai": "https://esm.sh/@google/genai@^1.10.0" } }
+</script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo-group">
+                <div class="logo">SENTINEL-AI</div>
+                <div class="uptime-display">UPTIME: <span id="uptime">00:00:00</span></div>
+            </div>
+            <div class="header-info">
+                <canvas id="audio-visualizer" width="150" height="30"></canvas>
+                <div class="time-info">
+                    <div id="current-time"></div>
+                </div>
+            </div>
+        </header>
+        
+        <div class="info-panel">
+            <div class="tab-nav">
+                <button class="tab-btn active" data-tab="analysis">AI ANALYSIS</button>
+                <button class="tab-btn" data-tab="log">COMMAND & LOG</button>
+                <button class="tab-btn" data-tab="timeline">EVENT TIMELINE</button>
+                <button class="tab-btn" data-tab="map">TACTICAL MAP</button>
+                <button class="tab-btn" data-tab="system">SYSTEM</button>
+            </div>
+            <div class="tab-content">
+                <div id="analysis-pane" class="tab-pane active">
+                    <div class="analysis-content">
+                        <div>
+                            <strong>ASSESSMENT:</strong> <span id="ai-assessment">Awaiting scan...</span><br>
+                            <strong>ACTION:</strong> <span id="ai-action">None</span>
+                        </div>
+                         <div>
+                            <strong>OBJECTS:</strong>
+                            <ul id="ai-objects"><li>None detected</li></ul>
+                        </div>
+                    </div>
+                </div>
+                <div id="log-pane" class="tab-pane">
+                     <div id="terminal" class="log-content"></div>
+                     <div class="chat-input-container">
+                        <input type="text" id="chat-input" placeholder="Query AI...">
+                        <button id="send-chat-button" class="control-btn">SEND</button>
+                    </div>
+                </div>
+                <div id="timeline-pane" class="tab-pane">
+                    <div id="timeline-content" class="timeline-content"></div>
+                    <button id="export-timeline-button" class="control-btn" style="width: 100%; margin-top:10px;">EXPORT TIMELINE</button>
+                </div>
+                <div id="map-pane" class="tab-pane">
+                    <canvas id="radar-canvas" width="300" height="120"></canvas>
+                    <button id="scan-location-button" class="control-btn">SCAN LOCAL AREA</button>
+                </div>
+                <div id="system-pane" class="tab-pane">
+                    <form id="add-camera-form" class="system-form">
+                        <h3>ADD NEW CAMERA STREAM</h3>
+                        <input type="text" id="camera-name-input" placeholder="Camera Name / Location" required>
+                        <input type="url" id="camera-url-input" placeholder="YouTube Stream URL" required>
+                        <button type="submit" class="control-btn">ADD TO GRID</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls-bar">
+            <button id="scan-button" class="control-btn">SCAN ACTIVE AI CAM</button>
+            <div id="loader" class="loader hidden"></div>
+            <div class="toggle-switch"><label for="police-lookout">POLICE LOOKOUT</label><input type="checkbox" id="police-lookout"></div>
+            <div class="toggle-switch"><label for="auto-patrol">SYSTEM PATROL</label><input type="checkbox" id="auto-patrol"></div>
+        </div>
+
+        <main class="main-content">
+            <div id="cam-01-feed" class="camera-feed" data-cam-id="CAM_01_AI" data-type="local" data-location="MAIN HUB (FRONT)">
+                <div class="camera-header">
+                    <div class="camera-id">CAM_01_AI - MAIN HUB (FRONT)</div>
+                    <div class="camera-status ai-active">LIVE</div>
+                </div>
+                <div class="camera-display">
+                    <video id="cam-01-video" playsinline autoplay muted></video>
+                    <canvas id="cam-01-capture" class="hidden"></canvas>
+                </div>
+            </div>
+            <div id="cam-02-feed" class="camera-feed" data-cam-id="CAM_02" data-type="stream" data-location="Hopkins & Guadalupe" data-stream-url="https://www.youtube.com/live/E8LsKcVpL5A?si=ktCYqRDFtnKa-Shd">
+                <div class="camera-header">
+                    <div class="camera-id">CAM_02 - Hopkins & Guadalupe</div>
+                    <div class="camera-status streaming">STREAM</div>
+                </div>
+                <div class="camera-display">
+                    <iframe frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+                </div>
+            </div>
+            <div id="cam-03-feed" class="camera-feed" data-cam-id="CAM_03" data-type="stream" data-location="I-35 & 71" data-stream-url="https://www.youtube.com/live/bYd6ChdCblg?si=c5qjlTqJNzXfxrNS">
+                 <div class="camera-header">
+                    <div class="camera-id">CAM_03 - I-35 & 71</div>
+                    <div class="camera-status streaming">STREAM</div>
+                </div>
+                <div class="camera-display">
+                    <iframe frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+                </div>
+            </div>
+            <div id="cam-04-feed" class="camera-feed" data-cam-id="CAM_04_AI" data-type="local" data-location="AUXILIARY (REAR)">
+                <div class="camera-header">
+                    <div class="camera-id">CAM_04_AI - AUXILIARY (REAR)</div>
+                    <div class="camera-status ai-active">AWAITING</div>
+                </div>
+                <div class="camera-display">
+                    <video id="cam-04-video" playsinline autoplay muted></video>
+                    <canvas id="cam-04-capture" class="hidden"></canvas>
+                    <div class="camera-placeholder">NO AUX CAM</div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script type="module" src="/index.tsx"></script>
+</body>
+</html>
